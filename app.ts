@@ -2,10 +2,11 @@ import express from "express";
 import asyncHandler from "express-async-handler"
 import dotenv from 'dotenv';
 import errorHandler from './src/middleware/errorHandler'
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas } from "canvas";
 import GIFEncoder from 'gifencoder';
 
-import getDragons from './src/functions/getDragons'
+import getDragons from './src/functions/getDragons';
+import getDragonStrip from './src/functions/getDragonStrip';
 
 dotenv.config({ path: '.env' });
 
@@ -13,38 +14,37 @@ const app = express();
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// DEMO: get growing things on a scroll and put them into a banner
-app.get('/dragons/:scrollName.png', asyncHandler(async (req, res) => {
+// DEMO: get growing things on a scroll and put them into a carousel
+app.get('/dragons/:scrollName.gif', asyncHandler(async (req, res) => {
   const dragonIds = await getDragons(req.params.scrollName)
-  const dragonImages = await Promise.all(
-    dragonIds.map(
-      async (dragonId) => {
-        const dragonImage = await loadImage(
-          'https://dragcave.net/image/' + dragonId + '.gif'
-        )
-        return dragonImage
-      }
-    )
-  )
+  const { dragonStrip, width, height } = await getDragonStrip(dragonIds);
 
-  const HEIGHT = 50;
-  
-  const canvas = createCanvas(400, HEIGHT);
+  const encoder = new GIFEncoder(width, height);
+  encoder.start();
+  encoder.setRepeat(0);
+  encoder.setDelay(100);
+  encoder.setQuality(1);
+  const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
-  let totalXOffset = 0;
-  dragonImages.forEach((dragonImage) => {
-    ctx.drawImage(
-      dragonImage, 
-      totalXOffset, 
-      HEIGHT - dragonImage.naturalHeight,
-      dragonImage.naturalWidth,
-      dragonImage.naturalHeight
-    );
-    totalXOffset += dragonImage.naturalWidth + 1;
-  });
 
-  const buffer = canvas.toBuffer("image/png");
-  res.contentType('image/png');
+  for (let i = 1; i <= width; i+= 2) {
+    if (i === 1 || i === width) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(dragonStrip, 0, 0, width, height);
+      encoder.addFrame(ctx);
+    } else {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(dragonStrip, -i, 0, width, height);
+      ctx.drawImage(dragonStrip, width - i, 0, width, height);
+      encoder.addFrame(ctx);
+    }
+  }
+
+  encoder.finish();
+  const buffer = encoder.out.getData()
+  res.contentType('image/gif');
   res.send(buffer);
 }))
 
