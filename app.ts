@@ -19,25 +19,26 @@ app.get('/dragons/:scrollName.gif', asyncHandler(async (req, res) => {
   const dragonIds = await getDragons(req.params.scrollName)
   const { dragonStrip, width, height } = await getDragonStrip(dragonIds);
 
-  const encoder = new GIFEncoder(width, height);
+  const BANNERWIDTH = 150;
+  const BANNERHEIGHT = 50;
+
+  const encoder = new GIFEncoder(BANNERWIDTH, BANNERHEIGHT);
   encoder.start();
   encoder.setRepeat(0);
   encoder.setDelay(100);
   encoder.setQuality(1);
-  const canvas = createCanvas(width, height);
+  const canvas = createCanvas(BANNERWIDTH, BANNERHEIGHT);
   const ctx = canvas.getContext('2d');
 
   for (let i = 1; i <= width; i+= 2) {
-    if (i === 1 || i === width) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(dragonStrip, 0, 0, width, height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, BANNERWIDTH, BANNERHEIGHT);
+    if (i >= 1 && i <= BANNERWIDTH) {
+      ctx.drawImage(dragonStrip, -i, BANNERHEIGHT - height, width, height);
       encoder.addFrame(ctx);
     } else {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(dragonStrip, -i, 0, width, height);
-      ctx.drawImage(dragonStrip, width - i, 0, width, height);
+      ctx.drawImage(dragonStrip, -i, BANNERHEIGHT - height, width, height);
+      ctx.drawImage(dragonStrip, width - i, BANNERHEIGHT - height, width, height);
       encoder.addFrame(ctx);
     }
   }
