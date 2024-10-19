@@ -2,9 +2,10 @@ import express from "express";
 import asyncHandler from "express-async-handler"
 import dotenv from 'dotenv';
 import errorHandler from './src/middleware/errorHandler'
-
-import { createCanvas } from "canvas";
+import { createCanvas, loadImage } from "canvas";
 import GIFEncoder from 'gifencoder';
+
+import getDragons from './src/functions/getDragons'
 
 dotenv.config({ path: '.env' });
 
@@ -12,6 +13,42 @@ const app = express();
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+// DEMO: get growing things on a scroll and put them into a banner
+app.get('/dragons/:scrollName.png', asyncHandler(async (req, res) => {
+  const dragonIds = await getDragons(req.params.scrollName)
+  const dragonImages = await Promise.all(
+    dragonIds.map(
+      async (dragonId) => {
+        const dragonImage = await loadImage(
+          'https://dragcave.net/image/' + dragonId + '.gif'
+        )
+        return dragonImage
+      }
+    )
+  )
+
+  const HEIGHT = 50;
+  
+  const canvas = createCanvas(400, HEIGHT);
+  const ctx = canvas.getContext('2d');
+  let totalXOffset = 0;
+  dragonImages.forEach((dragonImage) => {
+    ctx.drawImage(
+      dragonImage, 
+      totalXOffset, 
+      HEIGHT - dragonImage.naturalHeight,
+      dragonImage.naturalWidth,
+      dragonImage.naturalHeight
+    );
+    totalXOffset += dragonImage.naturalWidth + 1;
+  });
+
+  const buffer = canvas.toBuffer("image/png");
+  res.contentType('image/png');
+  res.send(buffer);
+}))
+
+// DEMO: just make an image
 app.get('/image.png', asyncHandler(async (_req, res) => {
   const WIDTH = 100;
   const HEIGHT = 100;
@@ -30,6 +67,7 @@ app.get('/image.png', asyncHandler(async (_req, res) => {
   res.send(buffer);
 }))
 
+// DEMO: make a gif, square of three alternating colors
 app.get('/image.gif', asyncHandler(async (_req, res) => {
   const WIDTH = 100;
   const HEIGHT = 100;
@@ -65,8 +103,8 @@ app.get('/image.gif', asyncHandler(async (_req, res) => {
   res.send(buffer);
 }))
 
+// DEMO: make a gif, carousel of a red square and blue square.
 app.get('/slide.gif', asyncHandler(async (_req, res) => {
-  // slide between red and blue.
   const WIDTH = 100;
   const HEIGHT = 100;
 

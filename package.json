@@ -18,7 +18,8 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-async-handler": "^1.2.0",
-    "gifencoder": "^2.0.1"
+    "gifencoder": "^2.0.1",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@jest/types": "^29.6.3",
