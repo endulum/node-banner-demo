@@ -65,6 +65,54 @@ app.get('/image.gif', asyncHandler(async (_req, res) => {
   res.send(buffer);
 }))
 
+app.get('/slide.gif', asyncHandler(async (_req, res) => {
+  // slide between red and blue.
+  const WIDTH = 100;
+  const HEIGHT = 100;
+
+  const encoder = new GIFEncoder(WIDTH, HEIGHT);
+  encoder.start();
+  encoder.setRepeat(0);
+  encoder.setDelay(50);
+  const canvas = createCanvas(WIDTH, HEIGHT);
+  const ctx = canvas.getContext('2d');
+
+  for (let i = 1; i <= WIDTH; i++) {
+    if (i === 1 || i === WIDTH) {
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      encoder.addFrame(ctx);
+    } else if (i === WIDTH / 2) {
+      ctx.fillStyle = '#0000ff';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      encoder.addFrame(ctx);
+    } else if (i < WIDTH / 2) {
+      const redx = 0 - (i * 2);
+      const bluex = WIDTH - (i * 2);
+      // console.log({ i, redx, bluex });
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(redx, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = '#0000ff';
+      ctx.fillRect(bluex, 0, WIDTH, HEIGHT);
+      encoder.addFrame(ctx);
+    } else {
+      const redx = WIDTH - ((i * 2) - WIDTH);
+      const bluex = 0 - ((i * 2) - WIDTH);
+      // console.log({ i, redx, bluex });
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(redx, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = '#0000ff';
+      ctx.fillRect(bluex, 0, WIDTH, HEIGHT);
+      encoder.addFrame(ctx);
+    }
+  }
+
+  encoder.finish();
+  const buffer = encoder.out.getData()
+  res.contentType('image/gif');
+  res.send(buffer);
+}))
+
 // hook up any routes here.
 
 app.use('*', asyncHandler(async (_req, res) => {
