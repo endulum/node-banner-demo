@@ -1,5 +1,5 @@
-# Server Template
-- **Lang:** Typescript + Express.js Framework
-- **Linting:** ESLint with recommendations
+# Node Banner Demo
+Attempt to generate an image on the fly.
 
-This is just a very bare server template.
+Links to look at: 
+- [How to create an image on the fly with Node.js?](https://stackoverflow.com/questions/7062812/how-to-create-an-image-on-the-fly-with-node-js)
