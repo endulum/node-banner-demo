@@ -2,8 +2,9 @@ import express from "express";
 import asyncHandler from "express-async-handler"
 import dotenv from 'dotenv';
 import errorHandler from './src/middleware/errorHandler'
-import { createCanvas } from "canvas";
+import { createCanvas, loadImage } from "canvas";
 import GIFEncoder from 'gifencoder';
+import path from 'path';
 
 import getDragons from './src/functions/getDragons';
 import getDragonStrip from './src/functions/getDragonStrip';
@@ -12,7 +13,60 @@ dotenv.config({ path: '.env' });
 
 const app = express();
 app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.urlencoded({ extended: true }));
+
+app.get('/textdemo.png', asyncHandler(async (req, res) => {
+  const WIDTH = 225;
+  const HEIGHT = 50;
+  const { scrollname, flair, dragons, growing, weeklyClicks, allTimeClicks } = req.query
+
+  const canvas = createCanvas(WIDTH, HEIGHT);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  function setTextAndShadow(fill: string, font: string) {
+    ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = fill;
+    ctx.font = font;
+  }
+
+  // the scrollname and flair
+  const actualScrollName = scrollname?.toString() ?? 'Scroll Name'
+  setTextAndShadow('#000000', '16px "Alkhemikal"');
+  ctx.fillText(actualScrollName, 6, 17);
+
+  const flairFilePath = path.join(__dirname, `/flair/${flair as string}.png`)
+  try {
+    const { width } = ctx.measureText(actualScrollName);
+    const flairImage = await loadImage(flairFilePath);
+    ctx.drawImage(flairImage, width + 10, 11 - Math.floor(flairImage.height / 2));
+  } catch(e) {
+    if ((e as { code: string }).code === 'ENOENT') 
+      console.log('flair probably doesnt exist');
+    else console.error(e)
+  }
+
+  function setStat(statName: string, statValue: string, xPos: number, yPos: number) {
+    setTextAndShadow('#000000', '8px Nokia Cellphone FC');
+    ctx.fillText(statName + ':', xPos, yPos);
+    let { width } = ctx.measureText(statName);
+    ctx.fillStyle = 'blue';
+    ctx.fillText(statValue, xPos + width + 5, yPos)
+  }
+
+  // the stats
+  setStat('Dragons', dragons as string ?? '0', 5, 32);
+  setStat('Growing', growing as string ?? '0', 5, 43);
+  setStat('Weekly Clicks', weeklyClicks as string ?? '0', 90, 32);
+  setStat('All-Time Clicks', allTimeClicks as string ?? '0', 90, 43);
+  
+  const buffer = canvas.toBuffer("image/png");
+  res.contentType('image/jpeg');
+  res.send(buffer);
+}));
 
 app.get('/login', asyncHandler(async (req, res) => {
   if (process.env.DC_OAUTH_URL === undefined)
