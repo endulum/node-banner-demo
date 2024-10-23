@@ -14,134 +14,130 @@ const app = express();
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+app.get('/login', asyncHandler(async (req, res) => {
+  if (process.env.DC_OAUTH_URL === undefined)
+    throw new Error('OAuth url is missing.');
+  if (process.env.DC_CLIENT_ID === undefined)
+    throw new Error('The client id is missing.');
+  const loginURL = `${
+    process.env.DC_OAUTH_URL
+  }?client_id=${
+    process.env.DC_CLIENT_ID
+  }&redirect_uri=${
+    'http://localhost:3000/'
+  }&response_type=code&scope=${
+    'dragons'
+  }`;
+
+  console.log(loginURL)
+
+  res.redirect(loginURL)
+}))
+
+// figure out how to log out!!
+app.get('/logout', asyncHandler(async (req, res) => {
+  if (process.env.DC_TOKEN_REVOCATION === undefined)
+    throw new Error('Token revocation link is missing.');
+  if (process.env.CURRENT_TOKEN === undefined)
+    throw new Error('The current token is missing.');
+  if (process.env.DC_CLIENT_ID === undefined)
+    throw new Error('The client id is missing.');
+  if (process.env.DC_API_KEY === undefined)
+    throw new Error('The client secret is missing.');
+
+  const logoutURL = `${
+    process.env.DC_TOKEN_REVOCATION
+  }?code=${
+    process.env.CURRENT_TOKEN
+  }&redirect_uri=${
+    'http://localhost:3000/'
+  }&client_id=${
+    process.env.DC_CLIENT_ID
+  }&client_secret=${
+    process.env.DC_API_KEY
+  }&scopes=identify dragons`
+
+  console.log(logoutURL);
+
+  const response = await fetch(logoutURL, {
+    method: 'POST',
+    headers: {
+      'Content-type': 'application/x-www-form-urlencoded',
+    }
+  });
+  const json = await response.json();
+  console.log(json);
+
+  if (!response.ok) {
+    throw new Error(response.statusText);
+  } else {
+    res.sendStatus(200)
+  }
+}))
+
+app.get('/me', asyncHandler(async (req, res) => {
+  console.log(process.env.CURRENT_TOKEN);
+  const response = await fetch('https://dragcave.net/api/v2/me', {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${process.env.CURRENT_TOKEN ?? ''}`
+    }
+  });
+  if (!response.ok) {
+    console.log(response)
+    throw new Error(response.statusText);
+  } else {
+    const json = await response.json()
+    res.json(json);
+  }
+}))
+
+app.get('/dragons', asyncHandler(async (req, res) => {
+  if (process.env.DC_API_ENDPOINT === undefined)
+    throw new Error('Endpoint is missing.')
+  console.log(process.env.CURRENT_TOKEN);
+  const response = await fetch(process.env.DC_API_ENDPOINT, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${process.env.CURRENT_TOKEN ?? ''}`
+    }
+  });
+  if (!response.ok) {
+    console.log(response)
+    throw new Error(response.statusText);
+  } else {
+    const json = await response.json()
+    res.json(json);
+  }
+}))
+
 // DEMO: get growing things on a scroll and put them into a carousel
-app.get('/dragons/:scrollName.gif', asyncHandler(async (req, res) => {
+app.get('/dragons.gif', asyncHandler(async (req, res) => {
   const dragonIds = await getDragons(req.params.scrollName)
   const { dragonStrip, width, height } = await getDragonStrip(dragonIds);
 
-  const BANNERWIDTH = 150;
-  const BANNERHEIGHT = 50;
+  const B_WIDTH = 150;
+  const B_HEIGHT = 50;
 
-  const encoder = new GIFEncoder(BANNERWIDTH, BANNERHEIGHT);
+  const encoder = new GIFEncoder(B_WIDTH, B_HEIGHT);
   encoder.start();
   encoder.setRepeat(0);
   encoder.setDelay(100);
   encoder.setQuality(1);
-  const canvas = createCanvas(BANNERWIDTH, BANNERHEIGHT);
+  const canvas = createCanvas(B_WIDTH, B_HEIGHT);
   const ctx = canvas.getContext('2d');
 
   for (let i = 1; i <= width; i+= 2) {
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, BANNERWIDTH, BANNERHEIGHT);
-    if (i >= 1 && i <= BANNERWIDTH) {
-      ctx.drawImage(dragonStrip, -i, BANNERHEIGHT - height, width, height);
+    ctx.fillRect(0, 0, B_WIDTH, B_HEIGHT);
+    if (i >= 1 && i <= B_WIDTH) {
+      ctx.drawImage(
+        dragonStrip, -i, B_HEIGHT - height, width, height
+      );
       encoder.addFrame(ctx);
     } else {
-      ctx.drawImage(dragonStrip, -i, BANNERHEIGHT - height, width, height);
-      ctx.drawImage(dragonStrip, width - i, BANNERHEIGHT - height, width, height);
-      encoder.addFrame(ctx);
-    }
-  }
-
-  encoder.finish();
-  const buffer = encoder.out.getData()
-  res.contentType('image/gif');
-  res.send(buffer);
-}))
-
-// DEMO: just make an image
-app.get('/image.png', asyncHandler(async (_req, res) => {
-  const WIDTH = 100;
-  const HEIGHT = 100;
-
-  const canvas = createCanvas(WIDTH, HEIGHT);
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = "#222222";
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  ctx.fillStyle = "#f2f2f2";
-  ctx.font = "32px Arial";
-  ctx.fillText("owo?", 13, 35);
-
-  const buffer = canvas.toBuffer("image/png");
-  res.contentType('image/png');
-  res.send(buffer);
-}))
-
-// DEMO: make a gif, square of three alternating colors
-app.get('/image.gif', asyncHandler(async (_req, res) => {
-  const WIDTH = 100;
-  const HEIGHT = 100;
-
-  const encoder = new GIFEncoder(WIDTH, HEIGHT);
-  encoder.start();
-  encoder.setRepeat(0);   // 0 for repeat, -1 for no-repeat
-  encoder.setDelay(500);  // frame delay in ms
-  encoder.setQuality(10); // image quality. 10 is default.
-
-  // use node-canvas
-  const canvas = createCanvas(WIDTH, HEIGHT);
-  const ctx = canvas.getContext('2d');
-
-  // red rectangle
-  ctx.fillStyle = '#ff0000';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  encoder.addFrame(ctx);
-
-  // green rectangle
-  ctx.fillStyle = '#00ff00';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  encoder.addFrame(ctx);
-
-  // blue rectangle
-  ctx.fillStyle = '#0000ff';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  encoder.addFrame(ctx);
-
-  encoder.finish();
-  const buffer = encoder.out.getData()
-  res.contentType('image/gif');
-  res.send(buffer);
-}))
-
-// DEMO: make a gif, carousel of a red square and blue square.
-app.get('/slide.gif', asyncHandler(async (_req, res) => {
-  const WIDTH = 100;
-  const HEIGHT = 100;
-
-  const encoder = new GIFEncoder(WIDTH, HEIGHT);
-  encoder.start();
-  encoder.setRepeat(0);
-  encoder.setDelay(50);
-  const canvas = createCanvas(WIDTH, HEIGHT);
-  const ctx = canvas.getContext('2d');
-
-  for (let i = 1; i <= WIDTH; i++) {
-    if (i === 1 || i === WIDTH) {
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      encoder.addFrame(ctx);
-    } else if (i === WIDTH / 2) {
-      ctx.fillStyle = '#0000ff';
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      encoder.addFrame(ctx);
-    } else if (i < WIDTH / 2) {
-      const redx = 0 - (i * 2);
-      const bluex = WIDTH - (i * 2);
-      // console.log({ i, redx, bluex });
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(redx, 0, WIDTH, HEIGHT);
-      ctx.fillStyle = '#0000ff';
-      ctx.fillRect(bluex, 0, WIDTH, HEIGHT);
-      encoder.addFrame(ctx);
-    } else {
-      const redx = WIDTH - ((i * 2) - WIDTH);
-      const bluex = 0 - ((i * 2) - WIDTH);
-      // console.log({ i, redx, bluex });
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(redx, 0, WIDTH, HEIGHT);
-      ctx.fillStyle = '#0000ff';
-      ctx.fillRect(bluex, 0, WIDTH, HEIGHT);
+      ctx.drawImage(dragonStrip, -i, B_HEIGHT - height, width, height);
+      ctx.drawImage(dragonStrip, width - i, B_HEIGHT - height, width, height);
       encoder.addFrame(ctx);
     }
   }
