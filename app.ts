@@ -8,6 +8,7 @@ import path from 'path';
 
 import getDragons from './src/functions/getDragons';
 import getDragonStrip from './src/functions/getDragonStrip';
+import getBanner from './src/functions/getBanner';
 
 dotenv.config({ path: '.env' });
 
@@ -15,119 +16,51 @@ const app = express();
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/textdemo.png', asyncHandler(async (req, res) => {
-  const WIDTH = 225;
-  const HEIGHT = 50;
-  const { scrollname, flair, dragons, growing, weeklyClicks, allTimeClicks } = req.query
 
-  const canvas = createCanvas(WIDTH, HEIGHT);
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  function setTextAndShadow(fill: string, font: string) {
-    ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
-    ctx.fillStyle = fill;
-    ctx.font = font;
-  }
-
-  // the scrollname and flair
-  const actualScrollName = scrollname?.toString() ?? 'Scroll Name'
-  setTextAndShadow('#000000', '16px "Alkhemikal"');
-  ctx.fillText(actualScrollName, 6, 17);
-
-  const flairFilePath = path.join(__dirname, `/flair/${flair as string}.png`)
-  try {
-    const { width } = ctx.measureText(actualScrollName);
-    const flairImage = await loadImage(flairFilePath);
-    ctx.drawImage(flairImage, width + 10, 11 - Math.floor(flairImage.height / 2));
-  } catch(e) {
-    if ((e as { code: string }).code === 'ENOENT') 
-      console.log('flair probably doesnt exist');
-    else console.error(e)
-  }
-
-  function setStat(statName: string, statValue: string, xPos: number, yPos: number) {
-    setTextAndShadow('#000000', '8px Nokia Cellphone FC');
-    ctx.fillText(statName + ':', xPos, yPos);
-    let { width } = ctx.measureText(statName);
-    ctx.fillStyle = 'blue';
-    ctx.fillText(statValue, xPos + width + 5, yPos)
-  }
-
-  // the stats
-  setStat('Dragons', dragons as string ?? '0', 5, 32);
-  setStat('Growing', growing as string ?? '0', 5, 43);
-  setStat('Weekly Clicks', weeklyClicks as string ?? '0', 90, 32);
-  setStat('All-Time Clicks', allTimeClicks as string ?? '0', 90, 43);
+app.get('/textdemo.gif', asyncHandler(async (req, res) => {
+  const { scrollname, flair, dragons, growing, weeklyClicks, allTimeClicks } = req.query;
+  const bannerImage = await getBanner(scrollname as string, flair as string, dragons as string, growing as string, weeklyClicks as string, allTimeClicks as string);
   
-  const buffer = canvas.toBuffer("image/png");
-  res.contentType('image/jpeg');
+  const dragonIds = await getDragons(scrollname as string)
+  const { dragonStrip, width, height } = await getDragonStrip(
+    [...dragonIds.slice(0, 4), '5D7B6']
+  );
+
+  const B_WIDTH = 327;
+  const B_HEIGHT = 61;
+
+  const encoder = new GIFEncoder(B_WIDTH, B_HEIGHT);
+  encoder.start();
+  encoder.setRepeat(0);
+  encoder.setDelay(100);
+  encoder.setQuality(0);
+  const canvas = createCanvas(B_WIDTH, B_HEIGHT);
+  const ctx = canvas.getContext('2d');
+
+  const yPos = B_HEIGHT - height - 8;
+  for (let i = 1; i <= width; i+= 2) {
+    ctx.drawImage(bannerImage, 0, 0);
+    ctx.drawImage(
+      dragonStrip, 
+      i - 1, 0, 106, height,
+      5, yPos, 106, height
+    );
+    if (i > width - 104) {
+      ctx.drawImage(
+        dragonStrip, 
+        0, 0, i - (width - 104), height,
+        width - i + 7, yPos, i - (width - 104), height
+      )
+    }
+    encoder.addFrame(ctx);
+  }
+
+  encoder.finish();
+  const buffer = encoder.out.getData()
+  res.contentType('image/gif');
   res.send(buffer);
 }));
-
-app.get('/login', asyncHandler(async (req, res) => {
-  if (process.env.DC_OAUTH_URL === undefined)
-    throw new Error('OAuth url is missing.');
-  if (process.env.DC_CLIENT_ID === undefined)
-    throw new Error('The client id is missing.');
-  const loginURL = `${
-    process.env.DC_OAUTH_URL
-  }?client_id=${
-    process.env.DC_CLIENT_ID
-  }&redirect_uri=${
-    'http://localhost:3000/'
-  }&response_type=code&scope=${
-    'dragons'
-  }`;
-
-  console.log(loginURL)
-
-  res.redirect(loginURL)
-}))
-
-// figure out how to log out!!
-app.get('/logout', asyncHandler(async (req, res) => {
-  if (process.env.DC_TOKEN_REVOCATION === undefined)
-    throw new Error('Token revocation link is missing.');
-  if (process.env.CURRENT_TOKEN === undefined)
-    throw new Error('The current token is missing.');
-  if (process.env.DC_CLIENT_ID === undefined)
-    throw new Error('The client id is missing.');
-  if (process.env.DC_API_KEY === undefined)
-    throw new Error('The client secret is missing.');
-
-  const logoutURL = `${
-    process.env.DC_TOKEN_REVOCATION
-  }?code=${
-    process.env.CURRENT_TOKEN
-  }&redirect_uri=${
-    'http://localhost:3000/'
-  }&client_id=${
-    process.env.DC_CLIENT_ID
-  }&client_secret=${
-    process.env.DC_API_KEY
-  }&scopes=identify dragons`
-
-  console.log(logoutURL);
-
-  const response = await fetch(logoutURL, {
-    method: 'POST',
-    headers: {
-      'Content-type': 'application/x-www-form-urlencoded',
-    }
-  });
-  const json = await response.json();
-  console.log(json);
-
-  if (!response.ok) {
-    throw new Error(response.statusText);
-  } else {
-    res.sendStatus(200)
-  }
-}))
 
 app.get('/me', asyncHandler(async (req, res) => {
   console.log(process.env.CURRENT_TOKEN);
@@ -149,11 +82,10 @@ app.get('/me', asyncHandler(async (req, res) => {
 app.get('/dragons', asyncHandler(async (req, res) => {
   if (process.env.DC_API_ENDPOINT === undefined)
     throw new Error('Endpoint is missing.')
-  console.log(process.env.CURRENT_TOKEN);
   const response = await fetch(process.env.DC_API_ENDPOINT, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${process.env.CURRENT_TOKEN ?? ''}`
+      'Authorization': `Bearer ${process.env.DC_API_KEY ?? ''}`
     }
   });
   if (!response.ok) {

@@ -14,16 +14,17 @@ async function getDragonStrip(dragonIds: string[]): Promise<{
     (acc, curr) => acc + curr.naturalWidth + 1,
     0
   );
-  const maxHeight = Math.max(...dragonImages.map(dragon => dragon.naturalHeight))
+
+  const STRIP_HEIGHT = 48;
   
-  const canvas = createCanvas(totalWidth, maxHeight);
+  const canvas = createCanvas(totalWidth, STRIP_HEIGHT);
   const ctx = canvas.getContext('2d');
   let totalXOffset = 0;
   dragonImages.forEach((dragonImage) => {
     ctx.drawImage(
       dragonImage, 
       totalXOffset, 
-      maxHeight - dragonImage.naturalHeight,
+      STRIP_HEIGHT - dragonImage.naturalHeight,
       dragonImage.naturalWidth,
       dragonImage.naturalHeight
     );
@@ -35,7 +36,7 @@ async function getDragonStrip(dragonIds: string[]): Promise<{
   return {
     dragonStrip,
     width: totalWidth,
-    height: maxHeight
+    height: STRIP_HEIGHT
   }
 }
 
