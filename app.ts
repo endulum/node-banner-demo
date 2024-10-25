@@ -24,7 +24,7 @@ app.get('/textdemo.gif', asyncHandler(async (req, res) => {
   
   const dragonIds = await getDragons(scrollname as string)
   const { dragonStrip, width, height } = await getDragonStrip(
-    [...dragonIds.slice(0, 4), '5D7B6']
+    [...dragonIds.slice(0, 5)]
   );
 
   const B_WIDTH = 327;
@@ -39,21 +39,28 @@ app.get('/textdemo.gif', asyncHandler(async (req, res) => {
   const ctx = canvas.getContext('2d');
 
   const yPos = B_HEIGHT - height - 8;
-  for (let i = 1; i <= width; i+= 2) {
-    ctx.drawImage(bannerImage, 0, 0);
-    ctx.drawImage(
-      dragonStrip, 
-      i - 1, 0, 106, height,
-      5, yPos, 106, height
-    );
-    if (i > width - 104) {
+
+  if (width < 106) {
+    ctx.drawImage(bannerImage, 0 ,0);
+    ctx.drawImage(dragonStrip, 58 - Math.ceil(width / 2), yPos, width, height);
+    encoder.addFrame(ctx);
+  } else {
+    for (let i = 1; i <= width; i+= 2) {
+      ctx.drawImage(bannerImage, 0, 0);
       ctx.drawImage(
         dragonStrip, 
-        0, 0, i - (width - 104), height,
-        width - i + 7, yPos, i - (width - 104), height
-      )
+        i - 1, 0, 106, height,
+        5, yPos, 106, height
+      );
+      if (i > width - 104) {
+        ctx.drawImage(
+          dragonStrip, 
+          0, 0, i - (width - 104), height,
+          width - i + 7, yPos, i - (width - 104), height
+        )
+      }
+      encoder.addFrame(ctx);
     }
-    encoder.addFrame(ctx);
   }
 
   encoder.finish();
