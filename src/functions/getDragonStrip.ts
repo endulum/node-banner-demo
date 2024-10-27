@@ -1,10 +1,18 @@
 import { loadImage, createCanvas, type Image } from "canvas";
 
 async function getDragonStrip(dragonIds: string[]): Promise<{
-  dragonStrip: Image,
+  dragonStrip: Image | null,
   width: number,
   height: number
 }> {
+  if (dragonIds.length === 0) {
+    return {
+      dragonStrip: null,
+      width: 0,
+      height: 0
+    }
+  }
+  
   const dragonImages = await Promise.all(
     dragonIds.map(async (dragonId) => { return await loadImage(
       'https://dragcave.net/image/' + dragonId + '.gif'

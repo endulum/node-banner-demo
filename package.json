@@ -14,12 +14,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "canvas": "^2.11.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-async-handler": "^1.2.0",
+    "gif-encoder-2": "^1.0.5",
     "gifencoder": "^2.0.1",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "sharp": "^0.33.5",
+    "text-to-svg": "^3.1.5"
   },
   "devDependencies": {
     "@jest/types": "^29.6.3",
