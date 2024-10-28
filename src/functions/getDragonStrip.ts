@@ -1,50 +1,61 @@
-import { loadImage, createCanvas, type Image } from "canvas";
+// import { loadImage, createCanvas, type Image } from "canvas";
 
-async function getDragonStrip(dragonIds: string[]): Promise<{
-  dragonStrip: Image | null,
-  width: number,
-  height: number
-}> {
-  if (dragonIds.length === 0) {
-    return {
-      dragonStrip: null,
-      width: 0,
-      height: 0
-    }
-  }
-  
+import sharp from "sharp";
+
+async function getDragonStrip(dragonIds: string[]) {
   const dragonImages = await Promise.all(
-    dragonIds.map(async (dragonId) => { return await loadImage(
-      'https://dragcave.net/image/' + dragonId + '.gif'
-    )})
-  )
-  const totalWidth = dragonImages.reduce(
-    (acc, curr) => acc + curr.naturalWidth + 1,
-    0
+    dragonIds.map(async (dragonId) => {
+      const response = await fetch(
+        `https://dragcave.net/image/${dragonId}.gif`
+      )
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const image = sharp(buffer);
+      return image;
+    })
   );
 
-  const STRIP_HEIGHT = 48;
-  
-  const canvas = createCanvas(totalWidth, STRIP_HEIGHT);
-  const ctx = canvas.getContext('2d');
-  let totalXOffset = 0;
-  dragonImages.forEach((dragonImage) => {
-    ctx.drawImage(
-      dragonImage, 
-      totalXOffset, 
-      STRIP_HEIGHT - dragonImage.naturalHeight,
-      dragonImage.naturalWidth,
-      dragonImage.naturalHeight
-    );
-    totalXOffset += dragonImage.naturalWidth + 1;
+  const dragonMetadatas = await Promise.all(
+    dragonImages.map((dragonImage) => dragonImage.metadata())
+  );
+
+  const totalWidth = dragonMetadatas.reduce(
+    (acc, curr) => acc + (curr.width ?? 0) + 1,
+    0
+  )
+
+  const STRIP_HEIGHT = 50;
+
+  let compositeImage = sharp({
+    create: {
+      width: totalWidth,
+      height: STRIP_HEIGHT,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
+    }
   });
 
-  // trying to "flatten" the dragons into a single image to deliver
-  const dragonStrip = await loadImage(canvas.toBuffer("image/png"));
+  let totalXOffset = 0;
+  const composites: sharp.OverlayOptions[] = [];
+  for (let i = 0; i < dragonImages.length; i++) {
+    const dragonImage = dragonImages[i];
+    const dragonMetadata = dragonMetadatas[i];
+    const xOffset = totalXOffset;
+    const yOffset = STRIP_HEIGHT - (dragonMetadata.height ?? 0);
+    composites.push({
+      input: await dragonImage.toBuffer(),
+      left: xOffset,
+      top: yOffset
+    });
+    totalXOffset += (dragonMetadata.width ?? 0) + 1;
+  }
+
+  compositeImage = compositeImage.composite(composites);
+
   return {
-    dragonStrip,
-    width: totalWidth,
-    height: STRIP_HEIGHT
+    stripBuffer: await compositeImage.png().toBuffer(),
+    stripWidth: totalWidth,
+    stripHeight: STRIP_HEIGHT
   }
 }
 

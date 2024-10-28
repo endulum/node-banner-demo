@@ -61,7 +61,6 @@ async function getDragons(scrollName: string): Promise<{
         hasNextPage = (pageJson as userFetchJson).data.hasNextPage;
         endCursor = (pageJson as userFetchJson).data.endCursor ?? '';
         DRAGONS.dragonCount += Object.keys((pageJson as userFetchJson).dragons).length;
-        console.log(`${DRAGONS.dragonCount} dragons so far, going to next page...`);
       })
   }
   // rest of the stats

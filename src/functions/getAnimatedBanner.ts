@@ -1,67 +1,111 @@
-import { createCanvas, loadImage, type Image } from "canvas";
-import GIFEncoder from 'gif-encoder-2';
+import sharp from 'sharp';
+import GIF from 'sharp-gif2';
 
-export default function getAnimatedBanner(
-  bannerImage: Image,
-  dragonStrip: {
-    image: Image | null,
-    width: number,
-    height: number
-  }
-): Buffer {
+export default async function getAnimatedBanner(
+  bannerBuffer: Buffer,
+  stripBuffer: Buffer,
+  stripWidth: number,
+  stripHeight: number,
+): Promise<Buffer> {
+  //console.log({stripWidth, stripHeight});
+  const BANNER_WIDTH = 106;
+  const BANNER_HEIGHT = 50;
   const startTime = performance.now();
-  const B_WIDTH = bannerImage.naturalWidth;
-  const B_HEIGHT = bannerImage.naturalHeight;
-  // TODO: factor out a B_BORDER from border width
 
-  const encoder = new GIFEncoder(B_WIDTH, B_HEIGHT, 'octree');
-  encoder.start();
-  encoder.setRepeat(0);
-  encoder.setDelay(100);
-  encoder.setQuality(1);
-  const canvas = createCanvas(B_WIDTH, B_HEIGHT);
-  const ctx = canvas.getContext('2d');
+  const frames: sharp.Sharp[] = [];
 
-  if (dragonStrip.image) {
-    const yPos = B_HEIGHT - dragonStrip.height - 8;
-
-    if (dragonStrip.width < 106) {
-      ctx.drawImage(bannerImage, 0 ,0);
-      ctx.drawImage(
-        dragonStrip.image, 
-        58 - Math.ceil(dragonStrip.width / 2), 
-        yPos, 
-        dragonStrip.width, 
-        dragonStrip.height
-      );
-      encoder.addFrame(ctx);
-    } else {
-      for (let i = 1; i <= dragonStrip.width; i+= 2) {
-        ctx.drawImage(bannerImage, 0, 0);
-        ctx.drawImage(
-          dragonStrip.image, 
-          i - 1, 0, 106, dragonStrip.height,
-          5, yPos, 106, dragonStrip.height
-        );
-        if (i > dragonStrip.width - 104) {
-          ctx.drawImage(
-            dragonStrip.image, 
-            0, 0, i - (dragonStrip.width - 104), dragonStrip.height,
-            dragonStrip.width - i + 7, yPos, i - (dragonStrip.width - 104), dragonStrip.height
-          )
-        }
-        encoder.addFrame(ctx);
+  if (stripWidth < BANNER_WIDTH) {
+    const frame = sharp({
+      create: {
+        width: 327,
+        height: 61,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
       }
-    }
+    });
+    const composites: sharp.OverlayOptions[] = [
+      {
+        input: bannerBuffer,
+        top: 0,
+        left: 0
+      },
+      {
+        input: stripBuffer,
+        top: 4,
+        left: Math.floor(BANNER_WIDTH / 2) - Math.floor(stripWidth / 2) + 5
+      }
+    ];
+    const composedFrame = await frame.composite(composites).png().toBuffer();
+      frames.push(sharp(composedFrame))
   } else {
-    ctx.drawImage(bannerImage, 0 ,0);
-    encoder.addFrame(ctx);
+    for (let i = 2; i <= stripWidth; i += 2) {
+      const cropX = i % stripWidth;
+      // what is this...?
+      const cropWidth = Math.min(BANNER_WIDTH, stripWidth - cropX);
+      //console.log({ cropX, cropWidth })
+      
+      if (cropX >= stripWidth || cropWidth <= 0) {
+        console.error(`Invalid crop area: ${cropX} ${cropWidth}`);
+        continue;
+      }
+  
+      const croppedStrip = sharp(stripBuffer).extract({
+        left: cropX,
+        top: 0,
+        width: cropWidth,
+        height: stripHeight
+      });
+  
+      const frame = sharp({
+        create: {
+          width: 327,
+          height: 61,
+          channels: 4,
+          background: { r: 0, g: 0, b: 0, alpha: 0 }
+        }
+      });
+  
+      const composites: sharp.OverlayOptions[] = [
+        {
+          input: bannerBuffer,
+          top: 0,
+          left: 0
+        },
+        {
+          input: await croppedStrip.toBuffer(),
+          top: 4,
+          left: 5
+        }
+      ];
+  
+      if (cropWidth < BANNER_WIDTH) {
+        const overflowWidth = BANNER_WIDTH - cropWidth;
+        const overflowStripWidth = Math.min(overflowWidth, stripWidth);
+        const overflowStrip = sharp(stripBuffer).extract({
+          left: 0,
+          top: 0,
+          width: overflowStripWidth,
+          height: BANNER_HEIGHT
+        });
+        composites.push({
+          input: await overflowStrip.toBuffer(),
+          top: 4,
+          left: cropWidth + 5
+        })
+      }
+      const composedFrame = await frame.composite(composites).png().toBuffer();
+      frames.push(sharp(composedFrame))
+    }
   }
 
-  encoder.finish();
-  const buffer = encoder.out.getData();
+  const gif = await GIF.createGif({
+    delay: 100,
+    repeat: 0,
+    format: 'rgb444',
+  }).addFrame(frames).toSharp();
 
   const endTime = performance.now();
-  console.log(`animated banner generated in ${endTime - startTime}ms`);
-  return buffer;
+  console.log(`Banner animation generated in ${endTime - startTime}ms`)
+  return await gif.toBuffer();
+  // todo: understand this
 }

@@ -74,7 +74,6 @@ async function getBanner(
     .png();
   const flairMetadata = await flairImage.metadata();
   const flairBuffer = await flairImage.toBuffer();
-  console.log(flairMetadata.height);
 
   // stats
   const statBuffers = {
