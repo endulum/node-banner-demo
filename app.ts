@@ -5,6 +5,7 @@ import errorHandler from './src/middleware/errorHandler'
 
 import sharp from "sharp";
 import path from 'path';
+import fs from 'fs/promises';
 
 import getDragons from './src/functions/getDragons';
 import getDragonStrip from './src/functions/getDragonStrip';
@@ -17,7 +18,7 @@ const app = express();
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/textdemo.png', asyncHandler(async (req, res) => {
+app.get('/textdemo', asyncHandler(async (req, res) => {
   // goal: create text
   const text = 'no eggs here. go home.';
   
@@ -42,64 +43,107 @@ app.get('/textdemo.png', asyncHandler(async (req, res) => {
   const bannerBuffer = await sharp(path.join(__dirname, '/banner.png'))
     .png()
     .composite([
-      { input: svgBuffer, top: 25, left: 125 },
+      { input: await svgImage.toBuffer(), top: 25, left: 125 },
     ])
     .toBuffer()
   res.contentType('image/png');
   res.send(bannerBuffer);
 }))
 
-// app.get('/demo.gif', asyncHandler(async (req, res) => {
-//   const startTime = performance.now();
-//   // for here, we'll just yoink the scrollname from the query
-//   const { scrollName } = req.query as Record<string, string | null>;
+app.get('/demo', asyncHandler(async (req, res) => {
+  try {
+    const startTime = performance.now();
+    // for here, we'll just yoink the scrollname from the query
+    const { scrollName } = req.query as Record<string, string | null>;
 
-//   // first, we need information, which is what we'll hit APIs for.
-//   // hit the DC API for dragon info
-//   const { 
-//     success, dragonCount, growingCount, dragonIds 
-//   } = await getDragons(scrollName ?? '');
-//   if (!success) {
-//     // if the API hit fails, render a Scroll Not Found banner
-//     // TODO: that
-//     res.sendStatus(404);
-//     return;
-//   }
+    // first, we need information, which is what we'll hit APIs for.
+    // hit the DC API for dragon info
+    const { 
+      success, dragonCount, growingCount, dragonIds 
+    } = await getDragons(scrollName ?? '');
+    if (!success) throw new Error('scroll not found');
 
-//   // then, hit the hatchery API for click and flair info
-//   // TODO: that
-//   const SAMPLE_WCLICKS = 12345
-//   const SAMPLE_ACLICKS = 123456
-//   const SAMPLE_FLAIR = 'saxifrage'
+    // then, hit the hatchery API for click and flair info
+    // TODO: that
+    const SAMPLE_WCLICKS = 12345
+    const SAMPLE_ACLICKS = 123456
+    const SAMPLE_FLAIR = 'saxifrage'
 
-//   // place gathered information on the banner
-//   const bannerImage = await getBanner(
-//     scrollName as string,
-//     SAMPLE_FLAIR,
-//     dragonCount.toLocaleString(),
-//     growingCount.toLocaleString(),
-//     SAMPLE_WCLICKS.toLocaleString(),
-//     SAMPLE_ACLICKS.toLocaleString()
-//     // prefer using toLocaleString for commas
-//   );
+    // place gathered information on the banner
+    const bannerBuffer = await getBanner(
+      scrollName as string,
+      SAMPLE_FLAIR,
+      dragonCount.toLocaleString(),
+      growingCount.toLocaleString(),
+      SAMPLE_WCLICKS.toLocaleString(),
+      SAMPLE_ACLICKS.toLocaleString()
+      // prefer using toLocaleString for commas
+    );
 
-//   // convert growing IDs to a strip of images
-//   const { dragonStrip, width, height } = await getDragonStrip(dragonIds);
+    const endTime = performance.now();
+    console.log(`total time: ${endTime - startTime}ms`)
+    // res.sendStatus(200);
+    res.contentType('image/png');
+    res.send(bannerBuffer);
+  } catch(e) {
+    console.error(e);
+    const buffer = await fs.readFile(path.join(__dirname, 'notfound.webp'));
+    res.contentType('image/webp');
+    res.send(buffer);
+  }
+}))
 
-//   // combine banner image and strip into animated banner
-//   const bannerBuffer = getAnimatedBanner(bannerImage, {
-//     image: dragonStrip,
-//     width,
-//     height
-//   });
+/*app.get('/demo.gif', asyncHandler(async (req, res) => {
+  const startTime = performance.now();
+  // for here, we'll just yoink the scrollname from the query
+  const { scrollName } = req.query as Record<string, string | null>;
 
-//   const endTime = performance.now();
-//   console.log(`total time: ${endTime - startTime}ms`)
-  // res.contentType('image/gif');
-  // res.send(bannerBuffer);
+  // first, we need information, which is what we'll hit APIs for.
+  // hit the DC API for dragon info
+  const { 
+    success, dragonCount, growingCount, dragonIds 
+  } = await getDragons(scrollName ?? '');
+  if (!success) {
+    // if the API hit fails, render a Scroll Not Found banner
+    // TODO: that
+    res.sendStatus(404);
+    return;
+  }
 
-//   // TODO: wrap all of this in a trycatch and render an error banner if something no worky
-// }));
+  // then, hit the hatchery API for click and flair info
+  // TODO: that
+  const SAMPLE_WCLICKS = 12345
+  const SAMPLE_ACLICKS = 123456
+  const SAMPLE_FLAIR = 'saxifrage'
+
+  // place gathered information on the banner
+  const bannerImage = await getBanner(
+    scrollName as string,
+    SAMPLE_FLAIR,
+    dragonCount.toLocaleString(),
+    growingCount.toLocaleString(),
+    SAMPLE_WCLICKS.toLocaleString(),
+    SAMPLE_ACLICKS.toLocaleString()
+    // prefer using toLocaleString for commas
+  );
+
+  // convert growing IDs to a strip of images
+  const { dragonStrip, width, height } = await getDragonStrip(dragonIds);
+
+  // combine banner image and strip into animated banner
+  const bannerBuffer = getAnimatedBanner(bannerImage, {
+    image: dragonStrip,
+    width,
+    height
+  });
+
+  const endTime = performance.now();
+  console.log(`total time: ${endTime - startTime}ms`)
+  res.contentType('image/gif');
+  res.send(bannerBuffer);
+
+  // TODO: wrap all of this in a trycatch and render an error banner if something no worky
+}));*/
 
 app.use('*', asyncHandler(async (_req, res) => {
   res.sendStatus(404)

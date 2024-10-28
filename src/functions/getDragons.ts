@@ -51,7 +51,8 @@ async function getDragons(scrollName: string): Promise<{
   // gather dragon total
   let hasNextPage = json.data.hasNextPage;
   let endCursor = json.data.endCursor;
-  do {
+  DRAGONS.dragonCount += Object.keys((json as userFetchJson).dragons).length;
+  while (hasNextPage) {
     // it would not let me do this with async.
     // what does "Body is unusable" even mean?
     await fetch(FETCH_URL + '&after=' + endCursor, FETCH_OPT)
@@ -62,13 +63,13 @@ async function getDragons(scrollName: string): Promise<{
         DRAGONS.dragonCount += Object.keys((pageJson as userFetchJson).dragons).length;
         console.log(`${DRAGONS.dragonCount} dragons so far, going to next page...`);
       })
-  } while (hasNextPage)
+  }
   // rest of the stats
   DRAGONS.dragonIds = Object.keys(json.dragons).filter(key => {
     return (json.dragons[key].hoursleft) > 0;
   });
   DRAGONS.growingCount = DRAGONS.dragonIds.length;
-  
+
   const endTime = performance.now();
   console.log(`DC fetch completed in ${endTime - startTime}ms`)
   return DRAGONS;
