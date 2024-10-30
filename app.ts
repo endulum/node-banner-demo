@@ -18,6 +18,45 @@ const app = express();
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 
+async function textToPng(
+  text: string,
+  font: string, // eg. "16px Alkhemikal"
+  styles: string // eg: "fill: white; ..."
+): Promise<Buffer> {
+  const { width, height } = await sharp(
+    Buffer.from(
+      `<svg>
+        <text style="font: ${font};">${text}</text>
+      </svg>`
+    )
+  ).png().metadata();
+
+  const pngBuffer = await sharp(
+    Buffer.from(
+      `<svg width="${(width ?? 0) + 1}" height="${(height ?? 0) + 1}">
+        <style>
+          .text {
+            font: ${font};
+            filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.25));
+            ${styles}
+          }
+        </style>
+        <text y="${(height ?? 0) - 2}" class="text">${text}</text>
+      </svg>`
+    )
+  ).png().toBuffer();
+
+  return pngBuffer
+}
+
+app.get('/text', asyncHandler(async (req, res) => {
+  const text = 'Quick Brown Fox';
+  const textBuffer = await textToPng(text, '16px Alkhemikal', 'fill: black;');
+
+  res.contentType('image/png');
+  res.send(textBuffer);
+}))
+
 app.get('/textdemo', asyncHandler(async (req, res) => {
   // goal: create text
   const text = 'no eggs here. go home.';
@@ -93,7 +132,7 @@ app.get('/demo', asyncHandler(async (req, res) => {
 
     const endTime = performance.now();
     console.log(`total time: ${endTime - startTime}ms`)
-    res.contentType('image/gif');
+    res.contentType('image/webp');
     res.send(animatedBannerBuffer);
   } catch(e) {
     console.error(e);

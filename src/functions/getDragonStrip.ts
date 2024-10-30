@@ -3,6 +3,7 @@
 import sharp from "sharp";
 
 async function getDragonStrip(dragonIds: string[]) {
+  const startTime = performance.now();
   const dragonImages = await Promise.all(
     dragonIds.map(async (dragonId) => {
       const response = await fetch(
@@ -52,6 +53,8 @@ async function getDragonStrip(dragonIds: string[]) {
 
   compositeImage = compositeImage.composite(composites);
 
+  const endTime = performance.now();
+  console.log(`Carousel strip generated in ${endTime - startTime}ms`)
   return {
     stripBuffer: await compositeImage.png().toBuffer(),
     stripWidth: totalWidth,

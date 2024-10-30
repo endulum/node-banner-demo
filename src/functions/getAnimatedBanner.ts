@@ -38,6 +38,7 @@ export default async function getAnimatedBanner(
     const composedFrame = await frame.composite(composites).png().toBuffer();
       frames.push(sharp(composedFrame))
   } else {
+    console.log(`expecting ${stripWidth} frames`);
     for (let i = 2; i <= stripWidth; i += 2) {
       const cropX = i % stripWidth;
       // what is this...?
@@ -104,8 +105,12 @@ export default async function getAnimatedBanner(
     format: 'rgb444',
   }).addFrame(frames).toSharp();
 
+  const webpBuffer = await sharp(await gif.toBuffer(), { animated: true })
+    .webp()
+    .toBuffer()
+
   const endTime = performance.now();
   console.log(`Banner animation generated in ${endTime - startTime}ms`)
-  return await gif.toBuffer();
+  return webpBuffer;
   // todo: understand this
 }
