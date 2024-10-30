@@ -30,10 +30,14 @@ async function textToPng(
       </svg>`
     )
   ).png().metadata();
+  // make a dummy png with the text,
+  // the text renders ABOVE the viewport which isn't what we want,
+  // and there's no way for a svg to grab its own children's dimensions,
+  // so the purpose of this dummy is to provide the raw dimensions of the text.
 
   const pngBuffer = await sharp(
     Buffer.from(
-      `<svg width="${(width ?? 0) + 1}" height="${(height ?? 0) + 1}">
+      `<svg width="${(width ?? 0) + 1}" height="${(height ?? 0) + 4}">
         <style>
           .text {
             font: ${font};
@@ -41,17 +45,20 @@ async function textToPng(
             ${styles}
           }
         </style>
-        <text y="${(height ?? 0) - 2}" class="text">${text}</text>
+        <text y="${(height ?? 0) + 1}" class="text">${text}</text>
       </svg>`
     )
   ).png().toBuffer();
+  // the real deal is here. it uses the dummy-given dimensions
+  // to push down the text into the viewport at an appropriate distance
+  // and adds spacing to accomodate the text-shadow.
 
   return pngBuffer
 }
 
 app.get('/text', asyncHandler(async (req, res) => {
   const text = 'Quick Brown Fox';
-  const textBuffer = await textToPng(text, '16px Alkhemikal', 'fill: black;');
+  const textBuffer = await textToPng(text, '8px Nokia Cellphone FC', 'fill: black;');
 
   res.contentType('image/png');
   res.send(textBuffer);
